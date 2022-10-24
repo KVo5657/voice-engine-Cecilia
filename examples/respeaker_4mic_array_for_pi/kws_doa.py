@@ -1,5 +1,5 @@
 """
-Search the keyword "snowboy".
+Search the keyword "cecilia".
 After finding the keyword, Direction Of Arrival (DOA) is estimated.
 
 for ReSpeaker 4 Mic Array for Raspberry Pi
@@ -16,7 +16,7 @@ from voice_engine.doa_respeaker_4mic_array import DOA
 def main():
     src = Source(rate=16000, channels=4)
     ch0 = ChannelPicker(channels=src.channels, pick=0)
-    kws = KWS(model='snowboy', sensitivity=0.6, verbose=True)
+    kws = KWS(model='Cecilia.pmdl', sensitivity=0.6, verbose=True)
     doa = DOA(rate=16000)
 
     src.link(ch0)
