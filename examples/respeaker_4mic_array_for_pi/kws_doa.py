@@ -1,44 +1,43 @@
-"""
-Search the keyword "cecilia".
-After finding the keyword, Direction Of Arrival (DOA) is estimated.
-
-for ReSpeaker 4 Mic Array for Raspberry Pi
-"""
 
 import sys
-import time
-from voice_engine.source import Source
-from voice_engine.channel_picker import ChannelPicker
-from voice_engine.kws import KWS
-from voice_engine.doa_respeaker_4mic_array import DOA
+import numpy as np
+import collections
+from mic_array import MicArray
+from pixel_ring import pixel_ring
+from snowboydetect import SnowboyDetect
+
+
+RATE = 16000
+CHANNELS = 4
+KWS_FRAMES = 10     # ms
+DOA_FRAMES = 800    # ms
+
+
+detector = SnowboyDetect('snowboy/resources/common.res', 'snowboy/resources/alexa/alexa_02092017.umdl')
+detector.SetAudioGain(1)
+detector.SetSensitivity('0.5')
 
 
 def main():
-    src = Source(rate=16000, channels=4)
-    ch0 = ChannelPicker(channels=src.channels, pick=0)
-    kws = KWS(model='Cecilia.pmdl', sensitivity=0.6, verbose=True)
-    doa = DOA(rate=16000)
+    history = collections.deque(maxlen=int(DOA_FRAMES / KWS_FRAMES))
 
-    src.link(ch0)
-    ch0.link(kws)
-    src.link(doa)
+    try:
+        with MicArray(RATE, CHANNELS, RATE * KWS_FRAMES / 1000)  as mic:
+            for chunk in mic.read_chunks():
+                history.append(chunk)
 
-    def on_detected(keyword):
-        print('detected {} at direction {}'.format(keyword, doa.get_direction()))
+                # Detect keyword from channel 0
+                ans = detector.RunDetection(chunk[0::CHANNELS].tostring())
+                if ans > 0:
+                    frames = np.concatenate(history)
+                    direction = mic.get_direction(frames)
+                    pixel_ring.set_direction(direction)
+                    print('\n{}'.format(int(direction)))
 
-    kws.set_callback(on_detected)
+    except KeyboardInterrupt:
+        pass
 
-    src.recursive_start()
-    while True:
-        try:
-            time.sleep(1)
-        except KeyboardInterrupt:
-            break
-
-    src.recursive_stop()
-
-    # wait a second to allow other threads to exit
-    time.sleep(1)
+    pixel_ring.off()
 
 
 if __name__ == '__main__':
